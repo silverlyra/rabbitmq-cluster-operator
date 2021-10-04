@@ -109,13 +109,19 @@ generate-installation-manifest:
 	mkdir -p releases
 	kustomize build config/installation/ > releases/rabbitmq-cluster-operator.yaml
 
+DOCKER_TAG ?= latest
+
 # Build the docker image
 docker-build: check-env-docker-repo git-commit-sha
-	docker build --build-arg=GIT_COMMIT=$(GIT_COMMIT) -t $(DOCKER_REGISTRY_SERVER)/$(OPERATOR_IMAGE):latest .
+	DOCKER_BUILDKIT=1 docker build --build-arg=GIT_COMMIT=$(GIT_COMMIT) -t $(DOCKER_REGISTRY_SERVER)/$(OPERATOR_IMAGE):$(DOCKER_TAG) .
 
 # Push the docker image
 docker-push: check-env-docker-repo
-	docker push $(DOCKER_REGISTRY_SERVER)/$(OPERATOR_IMAGE):latest
+	docker push $(DOCKER_REGISTRY_SERVER)/$(OPERATOR_IMAGE):$(DOCKER_TAG)
+
+# Build and push a multi-architecture Docker image
+docker-buildx-push: check-env-docker-repo  git-commit-sha
+	docker buildx build --push --platform linux/amd64,linux/arm64 --build-arg=GIT_COMMIT=$(GIT_COMMIT) -t $(DOCKER_REGISTRY_SERVER)/$(OPERATOR_IMAGE):$(DOCKER_TAG) .
 
 git-commit-sha:
 ifeq ("", git diff --stat)
@@ -125,7 +131,7 @@ GIT_COMMIT=$(shell git rev-parse --short HEAD)-
 endif
 
 docker-build-dev: check-env-docker-repo  git-commit-sha
-	docker build --build-arg=GIT_COMMIT=$(GIT_COMMIT) -t $(DOCKER_REGISTRY_SERVER)/$(OPERATOR_IMAGE):$(GIT_COMMIT) .
+	DOCKER_BUILDKIT=1 docker build --build-arg=GIT_COMMIT=$(GIT_COMMIT) -t $(DOCKER_REGISTRY_SERVER)/$(OPERATOR_IMAGE):$(GIT_COMMIT) .
 	docker push $(DOCKER_REGISTRY_SERVER)/$(OPERATOR_IMAGE):$(GIT_COMMIT)
 
 CERT_MANAGER_VERSION ?= 1.2.0

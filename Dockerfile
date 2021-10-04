@@ -1,5 +1,8 @@
 # Build the manager binary
-FROM golang:1.17 as builder
+FROM --platform=${BUILDPLATFORM} golang:1.17 as builder
+
+ARG TARGETARCH
+ARG TARGETOS
 
 WORKDIR /workspace
 
@@ -15,10 +18,10 @@ COPY controllers/ controllers/
 COPY internal/ internal/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -tags timetzdata -o manager main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -a -tags timetzdata -o manager main.go
 
 # ---------------------------------------
-FROM alpine:latest as etc-builder
+FROM --platform=${BUILDPLATFORM} alpine:latest as etc-builder
 
 RUN echo "rabbitmq-cluster-operator:x:1000:" > /etc/group && \
     echo "rabbitmq-cluster-operator:x:1000:1000::/home/rabbitmq-cluster-operator:/usr/sbin/nologin" > /etc/passwd
@@ -26,7 +29,7 @@ RUN echo "rabbitmq-cluster-operator:x:1000:" > /etc/group && \
 RUN apk add -U --no-cache ca-certificates
 
 # ---------------------------------------
-FROM scratch
+FROM --platform=${TARGETPLATFORM} scratch
 
 ARG GIT_COMMIT
 LABEL GitCommit=$GIT_COMMIT
